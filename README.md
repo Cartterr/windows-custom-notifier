@@ -7,7 +7,7 @@ By utilizing Google's PubSubHubbub (WebSub) push notification architecture, Noti
 ## Features
 
 - **⚡ Live Push Notifications:** Uses Google's WebSub protocol to instantly receive video uploads via HTTP POST webhooks.
-- **🖼️ Rich Media Windows 11 Toasts:** Automatically fetches the official high-quality YouTube thumbnail for the video and embeds it inline, alongside a grouped "YouTube" app header and the official YouTube logo.
+- **🖼️ Rich Media Windows 11 Toasts:** Automatically fetches the official high-quality YouTube thumbnail for the video and embeds it inline, alongside a grouped "YouTube" app header and the NotiPulse logo.
 - **🖱️ Interactive Launching:** Clicking the notification instantly opens the video in your default web browser (such as Chrome, Edge, or Comet).
 - **🔒 Secure Local Storage:** Your Google OAuth `credentials.json` and API tokens are saved completely outside of this repository in `%LocalAppData%\WindowsCustomNotifier` to prevent accidental credential leakage.
 - **🔄 Automated Subscription Management:** The app autonomously pulls your hundreds of YouTube channel subscriptions and bulk-subscribes them to the Google WebSub Hub in the background.
