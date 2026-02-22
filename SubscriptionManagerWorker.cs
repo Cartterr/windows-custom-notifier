@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Toolkit.Uwp.Notifications;
 
-namespace YoutubeNotifier;
+namespace Notiflow;
 
 public class SubscriptionManagerWorker : BackgroundService
 {

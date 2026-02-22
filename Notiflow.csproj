@@ -4,7 +4,7 @@
     <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>dotnet-YoutubeNotifier-3e838262-dc70-4b93-8367-c6f07e1a21c0</UserSecretsId>
+    <UserSecretsId>dotnet-Notiflow-3e838262-dc70-4b93-8367-c6f07e1a21c0</UserSecretsId>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
   </PropertyGroup>
 

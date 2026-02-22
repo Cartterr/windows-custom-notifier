@@ -6,7 +6,7 @@ using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
 using Microsoft.Toolkit.Uwp.Notifications;
 
-namespace YoutubeNotifier;
+namespace Notiflow;
 
 public class YouTubeApiService
 {
@@ -226,6 +226,8 @@ public class YouTubeApiService
         var builder = new ToastContentBuilder()
             .AddArgument("action", "viewVideo")
             .AddArgument("videoId", videoId)
+            // Adds the YouTube logo as the "App Logo" replacing the generic .exe icon in the header
+            .AddHeader("YouTube", "YouTube", "action=youtube")
             .AddText($"{channelTitle} uploaded a new video!")
             .AddText(videoTitle)
             .AddText($"Published: {publishedAt}");
