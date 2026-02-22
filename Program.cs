@@ -23,8 +23,6 @@ var port = builder.Configuration.GetValue<int>("Port", 5000);
 
 // Map Endpoints
 app.MapYouTubeEndpoints();
-
-// Future endpoints will be mapped here:
-// app.MapXEndpoints();
+app.MapXEndpoints();
 
 app.Run($"http://*:{port}");

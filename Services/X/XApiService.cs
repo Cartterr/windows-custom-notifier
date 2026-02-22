@@ -209,4 +209,72 @@ public class XApiService
             _logger.LogWarning("Failed to set X stream rules. Status: {StatusCode}. Error: {Error}", addResponse.StatusCode, error);
         }
     }
+
+    public async Task TestNotificationAsync(string tweetId)
+    {
+        if (string.IsNullOrEmpty(_bearerToken)) 
+        {
+            _logger.LogWarning("Not authenticated. Cannot fetch test tweet data.");
+            return;
+        }
+
+        using var httpClient = new HttpClient();
+        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _bearerToken);
+
+        try
+        {
+            var url = $"https://api.twitter.com/2/tweets/{tweetId}?expansions=author_id&user.fields=profile_image_url,name,username";
+            var response = await httpClient.GetAsync(url);
+            
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Failed to fetch test tweet. Status: {StatusCode}. Error: {Error}", response.StatusCode, error);
+                return;
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            
+            if (!doc.RootElement.TryGetProperty("data", out var data))
+            {
+                _logger.LogWarning("Tweet not found: {TweetId}", tweetId);
+                return;
+            }
+            
+            var text = data.GetProperty("text").GetString();
+            var authorId = data.GetProperty("author_id").GetString();
+
+            string authorName = "X User";
+            string authorUsername = "X";
+            string? profileImageUrl = null;
+
+            if (doc.RootElement.TryGetProperty("includes", out var includes) && 
+                includes.TryGetProperty("users", out var users))
+            {
+                foreach (var user in users.EnumerateArray())
+                {
+                    if (user.GetProperty("id").GetString() == authorId)
+                    {
+                        authorName = user.GetProperty("name").GetString() ?? authorName;
+                        authorUsername = user.GetProperty("username").GetString() ?? authorUsername;
+                        if (user.TryGetProperty("profile_image_url", out var profileImageElement))
+                        {
+                            profileImageUrl = profileImageElement.GetString()?.Replace("_normal", ""); 
+                        }
+                        break;
+                    }
+                }
+            }
+
+            var clickUrl = $"https://x.com/{authorUsername}/status/{tweetId}";
+            await _toastService.ShowToastAsync($"New post from {authorName} on X", text ?? "View post", null, profileImageUrl, clickUrl);
+
+            _logger.LogInformation("Successfully fired test notification for tweet {TweetId}", tweetId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching test tweet {TweetId}", tweetId);
+        }
+    }
 }
