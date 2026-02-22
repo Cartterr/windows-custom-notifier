@@ -15,7 +15,7 @@ builder.Services.AddHostedService<YouTubeSubscriptionWorker>();
 
 // Register X Services
 builder.Services.AddSingleton<XApiService>();
-builder.Services.AddHostedService<XPollingWorker>();
+builder.Services.AddHostedService<XStreamWorker>();
 
 var app = builder.Build();
 
