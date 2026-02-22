@@ -62,10 +62,6 @@ public class GoogleAuthService
     public async Task<string?> GetAccessTokenAsync(CancellationToken cancellationToken = default)
     {
         if (Credential == null) return null;
-        if (Credential.Token.IsExpired(Credential.Clock))
-        {
-            await Credential.RefreshTokenAsync(cancellationToken);
-        }
-        return Credential.Token.AccessToken;
+        return await Credential.GetAccessTokenForRequestAsync(cancellationToken);
     }
 }
