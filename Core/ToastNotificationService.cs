@@ -38,7 +38,7 @@ public class ToastNotificationService : IToastNotificationService
         }
 
         builder.AddText(title, hintWrap: true, hintMaxLines: 2)
-               .AddText(content);
+               .AddText(content, hintWrap: true, hintMaxLines: 4);
 
         if (!string.IsNullOrEmpty(localHeroImagePath))
         {

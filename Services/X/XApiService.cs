@@ -88,7 +88,7 @@ public class XApiService
 
         // 2. Connect to Stream
         _logger.LogInformation("Connecting to X live Filtered Stream...");
-        var streamUrl = "https://api.twitter.com/2/tweets/search/stream?expansions=author_id&user.fields=profile_image_url,username";
+        var streamUrl = "https://api.twitter.com/2/tweets/search/stream?expansions=author_id,attachments.media_keys&user.fields=profile_image_url,username&media.fields=url,type";
         
         try
         {
@@ -139,21 +139,39 @@ public class XApiService
             string authorName = "X User";
             string authorUsername = "X";
             string? profileImageUrl = null;
+            string? heroImageUrl = null;
 
-            if (doc.RootElement.TryGetProperty("includes", out var includes) && 
-                includes.TryGetProperty("users", out var users))
+            if (doc.RootElement.TryGetProperty("includes", out var includes))
             {
-                foreach (var user in users.EnumerateArray())
+                if (includes.TryGetProperty("users", out var users))
                 {
-                    if (user.GetProperty("id").GetString() == authorId)
+                    foreach (var user in users.EnumerateArray())
                     {
-                        authorName = user.GetProperty("name").GetString() ?? authorName;
-                        authorUsername = user.GetProperty("username").GetString() ?? authorUsername;
-                        if (user.TryGetProperty("profile_image_url", out var profileImageElement))
+                        if (user.GetProperty("id").GetString() == authorId)
                         {
-                            profileImageUrl = profileImageElement.GetString()?.Replace("_normal", ""); 
+                            authorName = user.GetProperty("name").GetString() ?? authorName;
+                            authorUsername = user.GetProperty("username").GetString() ?? authorUsername;
+                            if (user.TryGetProperty("profile_image_url", out var profileImageElement))
+                            {
+                                profileImageUrl = profileImageElement.GetString()?.Replace("_normal", ""); 
+                            }
+                            break;
                         }
-                        break;
+                    }
+                }
+
+                if (includes.TryGetProperty("media", out var mediaList))
+                {
+                    foreach (var media in mediaList.EnumerateArray())
+                    {
+                        if (media.TryGetProperty("type", out var typeElement) && typeElement.GetString() == "photo")
+                        {
+                            if (media.TryGetProperty("url", out var mediaUrlElement))
+                            {
+                                heroImageUrl = mediaUrlElement.GetString();
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -162,7 +180,7 @@ public class XApiService
             
             var clickUrl = $"https://x.com/{authorUsername}/status/{tweetId}";
             // Fire and forget so we don't block the stream
-            _ = _toastService.ShowToastAsync($"New post from {authorName} on X", text ?? "View post", null, profileImageUrl, clickUrl);
+            _ = _toastService.ShowToastAsync($"New post from {authorName} on X", text ?? "View post", heroImageUrl, profileImageUrl, clickUrl);
 
             _notifiedTweetIds.Add(tweetId);
             SaveState();
@@ -223,7 +241,7 @@ public class XApiService
 
         try
         {
-            var url = $"https://api.twitter.com/2/tweets/{tweetId}?expansions=author_id&user.fields=profile_image_url,name,username";
+            var url = $"https://api.twitter.com/2/tweets/{tweetId}?expansions=author_id,attachments.media_keys&user.fields=profile_image_url,name,username&media.fields=url,type";
             var response = await httpClient.GetAsync(url);
             
             if (!response.IsSuccessStatusCode)
@@ -248,27 +266,45 @@ public class XApiService
             string authorName = "X User";
             string authorUsername = "X";
             string? profileImageUrl = null;
+            string? heroImageUrl = null;
 
-            if (doc.RootElement.TryGetProperty("includes", out var includes) && 
-                includes.TryGetProperty("users", out var users))
+            if (doc.RootElement.TryGetProperty("includes", out var includes))
             {
-                foreach (var user in users.EnumerateArray())
+                if (includes.TryGetProperty("users", out var users))
                 {
-                    if (user.GetProperty("id").GetString() == authorId)
+                    foreach (var user in users.EnumerateArray())
                     {
-                        authorName = user.GetProperty("name").GetString() ?? authorName;
-                        authorUsername = user.GetProperty("username").GetString() ?? authorUsername;
-                        if (user.TryGetProperty("profile_image_url", out var profileImageElement))
+                        if (user.GetProperty("id").GetString() == authorId)
                         {
-                            profileImageUrl = profileImageElement.GetString()?.Replace("_normal", ""); 
+                            authorName = user.GetProperty("name").GetString() ?? authorName;
+                            authorUsername = user.GetProperty("username").GetString() ?? authorUsername;
+                            if (user.TryGetProperty("profile_image_url", out var profileImageElement))
+                            {
+                                profileImageUrl = profileImageElement.GetString()?.Replace("_normal", ""); 
+                            }
+                            break;
                         }
-                        break;
+                    }
+                }
+                
+                if (includes.TryGetProperty("media", out var mediaList))
+                {
+                    foreach (var media in mediaList.EnumerateArray())
+                    {
+                        if (media.TryGetProperty("type", out var typeElement) && typeElement.GetString() == "photo")
+                        {
+                            if (media.TryGetProperty("url", out var mediaUrlElement))
+                            {
+                                heroImageUrl = mediaUrlElement.GetString();
+                                break;
+                            }
+                        }
                     }
                 }
             }
 
             var clickUrl = $"https://x.com/{authorUsername}/status/{tweetId}";
-            await _toastService.ShowToastAsync($"New post from {authorName} on X", text ?? "View post", null, profileImageUrl, clickUrl);
+            await _toastService.ShowToastAsync($"New post from {authorName} on X", text ?? "View post", heroImageUrl, profileImageUrl, clickUrl);
 
             _logger.LogInformation("Successfully fired test notification for tweet {TweetId}", tweetId);
         }
