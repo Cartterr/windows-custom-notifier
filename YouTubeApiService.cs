@@ -6,7 +6,7 @@ using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
 using Microsoft.Toolkit.Uwp.Notifications;
 
-namespace Notiflow;
+namespace NotiFlare;
 
 public class YouTubeApiService
 {
