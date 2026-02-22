@@ -1,34 +1,33 @@
 using System.Text.Json;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
-using Google.Apis.Util.Store;
 using Google.Apis.YouTube.v3;
 using NotiPulse.Core;
+using NotiPulse.Services.Google;
 
 namespace NotiPulse.Services.YouTube;
 
 public class YouTubeApiService
 {
-    private static readonly string[] Scopes = { YouTubeService.Scope.YoutubeReadonly };
     private YouTubeService? _youtubeService;
     private readonly ILogger<YouTubeApiService> _logger;
     private readonly IToastNotificationService _toastService;
-    private readonly string _credentialsPath;
-    private readonly string _tokenPath;
+    private readonly GoogleAuthService _googleAuthService;
+    private readonly IAiSummarizerService _aiSummarizer;
     private readonly string _stateFilePath;
     private HashSet<string> _notifiedVideoIds = new();
 
-    public YouTubeApiService(ILogger<YouTubeApiService> logger, IToastNotificationService toastService)
+    public YouTubeApiService(ILogger<YouTubeApiService> logger, IToastNotificationService toastService, GoogleAuthService googleAuthService, IAiSummarizerService aiSummarizer)
     {
         _logger = logger;
         _toastService = toastService;
+        _googleAuthService = googleAuthService;
+        _aiSummarizer = aiSummarizer;
         
         var appDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var appFolder = Path.Combine(appDataFolder, "WindowsCustomNotifier");
         Directory.CreateDirectory(appFolder);
         
-        _credentialsPath = Path.Combine(appFolder, "credentials.json");
-        _tokenPath = Path.Combine(appFolder, "token");
         _stateFilePath = Path.Combine(appFolder, "state.json");
         
         LoadState();
@@ -60,38 +59,16 @@ public class YouTubeApiService
 
     public async Task<bool> AuthenticateAsync(CancellationToken cancellationToken)
     {
-        try
+        var result = await _googleAuthService.AuthenticateAsync(cancellationToken);
+        if (result && _youtubeService == null && _googleAuthService.Credential != null)
         {
-            if (!File.Exists(_credentialsPath))
-            {
-                _logger.LogWarning("Credentials file not found at {CredentialsPath}. Please create an OAuth 2.0 Client ID in Google Cloud Console and save it here.", _credentialsPath);
-                return false;
-            }
-
-            UserCredential credential;
-            using (var stream = new FileStream(_credentialsPath, FileMode.Open, FileAccess.Read))
-            {
-                credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-                    GoogleClientSecrets.FromStream(stream).Secrets,
-                    Scopes,
-                    "user",
-                    cancellationToken,
-                    new FileDataStore(_tokenPath, true));
-            }
-
             _youtubeService = new YouTubeService(new BaseClientService.Initializer()
             {
-                HttpClientInitializer = credential,
+                HttpClientInitializer = _googleAuthService.Credential,
                 ApplicationName = "NotiPulse Notification System",
             });
-
-            return true;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to authenticate with YouTube Data API.");
-            return false;
-        }
+        return result;
     }
 
     public async Task<List<string>> GetSubscriptionsAsync(CancellationToken cancellationToken)
@@ -131,8 +108,6 @@ public class YouTubeApiService
 
     public async Task HandleIncomingPushNotificationAsync(string videoId, string? channelId, string channelName, string title, string? publishedText)
     {
-        // YouTube WebSub occasionally sends updates for old videos (e.g., description edits).
-        // Using our state file prevents duplicate notifications for the same video ID.
         if (_notifiedVideoIds.Contains(videoId))
         {
             _logger.LogInformation("Ignored duplicate webhook payload for video ID {VideoId}", videoId);
@@ -142,7 +117,6 @@ public class YouTubeApiService
         string? thumbnailUrl = null;
         string? channelProfileUrl = null;
 
-        // Try to fetch the high-quality thumbnail and channel profile if we are authenticated
         if (_youtubeService != null)
         {
             try
@@ -172,7 +146,9 @@ public class YouTubeApiService
         }
 
         var clickUrl = $"https://www.youtube.com/watch?v={videoId}";
-        await _toastService.ShowToastAsync(title, channelName, thumbnailUrl, channelProfileUrl, clickUrl);
+        var summary = await _aiSummarizer.GetShortSummaryAsync(channelName, title);
+        
+        await _toastService.ShowToastAsync(title, channelName, summary, thumbnailUrl, channelProfileUrl, clickUrl);
         
         _notifiedVideoIds.Add(videoId);
         SaveState();
@@ -223,7 +199,9 @@ public class YouTubeApiService
                 var channelProfileUrl = await GetChannelProfilePictureUrlAsync(video.Snippet.ChannelId);
 
                 var clickUrl = $"https://www.youtube.com/watch?v={videoId}";
-                await _toastService.ShowToastAsync(title, channelName, thumbnailUrl, channelProfileUrl, clickUrl);
+                var summary = await _aiSummarizer.GetShortSummaryAsync(channelName, title);
+                
+                await _toastService.ShowToastAsync(title, channelName, summary, thumbnailUrl, channelProfileUrl, clickUrl);
 
                 _logger.LogInformation("Successfully fired test notification for video {VideoId}", videoId);
             }

@@ -13,7 +13,7 @@ public class ToastNotificationService : IToastNotificationService
         _httpClientFactory = httpClientFactory;
     }
 
-    public async Task ShowToastAsync(string title, string content, string? heroImageUrl = null, string? logoUrl = null, string? clickUrl = null)
+    public async Task ShowToastAsync(string title, string content, string? thirdRow = null, string? heroImageUrl = null, string? logoUrl = null, string? clickUrl = null)
     {
         string? localHeroImagePath = null;
         if (!string.IsNullOrEmpty(heroImageUrl))
@@ -39,6 +39,12 @@ public class ToastNotificationService : IToastNotificationService
 
         builder.AddText(title, hintWrap: true, hintMaxLines: 2)
                .AddText(content, hintWrap: true, hintMaxLines: 2);
+
+        if (!string.IsNullOrEmpty(thirdRow))
+        {
+            // Adding the AI summary as the 3rd row, italicized to distinguish it!
+            builder.AddText($"💡 {thirdRow}");
+        }
 
         if (!string.IsNullOrEmpty(localHeroImagePath))
         {

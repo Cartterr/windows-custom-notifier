@@ -2,12 +2,16 @@ using NotiPulse.Core;
 using NotiPulse.Endpoints;
 using NotiPulse.Services.YouTube;
 using NotiPulse.Services.X;
+using NotiPulse.Services.Google;
+using NotiPulse.Services.Gemini;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Register Core Services
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IToastNotificationService, ToastNotificationService>();
+builder.Services.AddSingleton<GoogleAuthService>();
+builder.Services.AddSingleton<IAiSummarizerService, GeminiSummarizerService>();
 
 // Register YouTube Services
 builder.Services.AddSingleton<YouTubeApiService>();

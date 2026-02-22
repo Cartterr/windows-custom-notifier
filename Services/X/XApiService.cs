@@ -8,15 +8,17 @@ public class XApiService
 {
     private readonly ILogger<XApiService> _logger;
     private readonly IToastNotificationService _toastService;
+    private readonly IAiSummarizerService _aiSummarizer;
     private readonly string _credentialsPath;
     private readonly string _stateFilePath;
     private HashSet<string> _notifiedTweetIds = new();
     private string? _bearerToken;
 
-    public XApiService(ILogger<XApiService> logger, IToastNotificationService toastService)
+    public XApiService(ILogger<XApiService> logger, IToastNotificationService toastService, IAiSummarizerService aiSummarizer)
     {
         _logger = logger;
         _toastService = toastService;
+        _aiSummarizer = aiSummarizer;
         
         var appDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var appFolder = Path.Combine(appDataFolder, "WindowsCustomNotifier");
@@ -122,7 +124,7 @@ public class XApiService
         }
     }
 
-    private void ProcessStreamLine(string line)
+    private async void ProcessStreamLine(string line)
     {
         try
         {
@@ -179,8 +181,9 @@ public class XApiService
             _logger.LogInformation("Instant tweet received from {AuthorName}: {TweetId}", authorName, tweetId);
             
             var clickUrl = $"https://x.com/{authorUsername}/status/{tweetId}";
-            // Fire and forget so we don't block the stream
-            _ = _toastService.ShowToastAsync($"New post from {authorName} on X", text ?? "View post", heroImageUrl, profileImageUrl, clickUrl);
+            var summary = await _aiSummarizer.GetShortSummaryAsync(authorName, text ?? "");
+            
+            await _toastService.ShowToastAsync($"New post from {authorName} on X", text ?? "View post", summary, heroImageUrl, profileImageUrl, clickUrl);
 
             _notifiedTweetIds.Add(tweetId);
             SaveState();
@@ -304,7 +307,9 @@ public class XApiService
             }
 
             var clickUrl = $"https://x.com/{authorUsername}/status/{tweetId}";
-            await _toastService.ShowToastAsync($"New post from {authorName} on X", text ?? "View post", heroImageUrl, profileImageUrl, clickUrl);
+            var summary = await _aiSummarizer.GetShortSummaryAsync(authorName, text ?? "");
+            
+            await _toastService.ShowToastAsync($"New post from {authorName} on X", text ?? "View post", summary, heroImageUrl, profileImageUrl, clickUrl);
 
             _logger.LogInformation("Successfully fired test notification for tweet {TweetId}", tweetId);
         }
