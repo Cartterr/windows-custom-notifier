@@ -1,6 +1,7 @@
 using NotiPulse.Core;
 using NotiPulse.Endpoints;
 using NotiPulse.Services.YouTube;
+using NotiPulse.Services.X;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,10 @@ builder.Services.AddSingleton<IToastNotificationService, ToastNotificationServic
 // Register YouTube Services
 builder.Services.AddSingleton<YouTubeApiService>();
 builder.Services.AddHostedService<YouTubeSubscriptionWorker>();
+
+// Register X Services
+builder.Services.AddSingleton<XApiService>();
+builder.Services.AddHostedService<XPollingWorker>();
 
 var app = builder.Build();
 
