@@ -167,6 +167,42 @@ public class YouTubeApiService
         SaveState();
     }
 
+    public async Task TestNotificationAsync(string videoId)
+    {
+        if (_youtubeService == null) 
+        {
+            _logger.LogWarning("Not authenticated. Cannot fetch test video data.");
+            return;
+        }
+
+        try
+        {
+            var request = _youtubeService.Videos.List("snippet");
+            request.Id = videoId;
+            var response = await request.ExecuteAsync();
+            var video = response.Items.FirstOrDefault();
+            
+            if (video != null)
+            {
+                var channelName = video.Snippet.ChannelTitle;
+                var title = video.Snippet.Title;
+                var publishedText = video.Snippet.PublishedAtDateTimeOffset?.LocalDateTime.ToString("g") ?? "Just Now";
+                var thumbnailUrl = video.Snippet.Thumbnails?.High?.Url ?? video.Snippet.Thumbnails?.Default__?.Url;
+
+                await ShowCustomToastAsync(channelName, title, publishedText, thumbnailUrl, videoId);
+                _logger.LogInformation("Successfully fired test notification for video {VideoId}", videoId);
+            }
+            else
+            {
+                _logger.LogWarning("Video not found: {VideoId}", videoId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching test video {VideoId}", videoId);
+        }
+    }
+
     private async Task ShowCustomToastAsync(string channelTitle, string videoTitle, string publishedAt, string? thumbnailUrl, string videoId)
     {
         string? localThumbnailPath = null;

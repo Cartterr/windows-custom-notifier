@@ -66,4 +66,27 @@ app.MapPost("/api/youtube/webhook", async (HttpContext context, YouTubeApiServic
     return Results.Ok();
 });
 
+// Debug Endpoint to Test Notifications
+app.MapGet("/api/youtube/test", async ([FromQuery(Name = "url")] string url, YouTubeApiService apiService) => 
+{
+    try
+    {
+        var uri = new Uri(url);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        
+        if (query.TryGetValue("v", out var videoIdValues))
+        {
+            var videoId = videoIdValues.ToString();
+            await apiService.TestNotificationAsync(videoId);
+            return Results.Ok($"Test notification triggered for video {videoId}");
+        }
+        
+        return Results.BadRequest("Invalid YouTube URL. Must contain a ?v= parameter.");
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest($"Error parsing URL: {ex.Message}");
+    }
+});
+
 app.Run($"http://*:{port}");
