@@ -139,8 +139,9 @@ public class YouTubeApiService
         }
 
         string? thumbnailUrl = null;
+        string? channelProfileUrl = null;
 
-        // Try to fetch the high-quality thumbnail if we are authenticated
+        // Try to fetch the high-quality thumbnail and channel profile if we are authenticated
         if (_youtubeService != null)
         {
             try
@@ -152,19 +153,45 @@ public class YouTubeApiService
                 
                 if (video != null)
                 {
-                    thumbnailUrl = video.Snippet.Thumbnails?.High?.Url ?? video.Snippet.Thumbnails?.Default__?.Url;
+                    thumbnailUrl = video.Snippet.Thumbnails?.Maxres?.Url 
+                                ?? video.Snippet.Thumbnails?.Standard?.Url 
+                                ?? video.Snippet.Thumbnails?.High?.Url 
+                                ?? video.Snippet.Thumbnails?.Default__?.Url;
+                }
+
+                if (!string.IsNullOrEmpty(channelId))
+                {
+                    channelProfileUrl = await GetChannelProfilePictureUrlAsync(channelId);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Could not fetch rich thumbnail for {VideoId}", videoId);
+                _logger.LogWarning(ex, "Could not fetch rich data for {VideoId}", videoId);
             }
         }
 
-        await ShowCustomToastAsync(channelName, title, publishedText ?? "Just Now", thumbnailUrl, videoId);
+        await ShowCustomToastAsync(channelName, title, publishedText ?? "Just Now", thumbnailUrl, channelProfileUrl, videoId);
         
         _notifiedVideoIds.Add(videoId);
         SaveState();
+    }
+
+    private async Task<string?> GetChannelProfilePictureUrlAsync(string channelId)
+    {
+        if (_youtubeService == null || string.IsNullOrEmpty(channelId)) return null;
+        try
+        {
+            var request = _youtubeService.Channels.List("snippet");
+            request.Id = channelId;
+            var response = await request.ExecuteAsync();
+            var channel = response.Items.FirstOrDefault();
+            return channel?.Snippet?.Thumbnails?.Default__?.Url ?? channel?.Snippet?.Thumbnails?.High?.Url;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not fetch channel profile picture for {ChannelId}", channelId);
+            return null;
+        }
     }
 
     public async Task TestNotificationAsync(string videoId)
@@ -187,9 +214,14 @@ public class YouTubeApiService
                 var channelName = video.Snippet.ChannelTitle;
                 var title = video.Snippet.Title;
                 var publishedText = video.Snippet.PublishedAtDateTimeOffset?.LocalDateTime.ToString("g") ?? "Just Now";
-                var thumbnailUrl = video.Snippet.Thumbnails?.High?.Url ?? video.Snippet.Thumbnails?.Default__?.Url;
+                var thumbnailUrl = video.Snippet.Thumbnails?.Maxres?.Url 
+                                ?? video.Snippet.Thumbnails?.Standard?.Url 
+                                ?? video.Snippet.Thumbnails?.High?.Url 
+                                ?? video.Snippet.Thumbnails?.Default__?.Url;
+                
+                var channelProfileUrl = await GetChannelProfilePictureUrlAsync(video.Snippet.ChannelId);
 
-                await ShowCustomToastAsync(channelName, title, publishedText, thumbnailUrl, videoId);
+                await ShowCustomToastAsync(channelName, title, publishedText, thumbnailUrl, channelProfileUrl, videoId);
                 _logger.LogInformation("Successfully fired test notification for video {VideoId}", videoId);
             }
             else
@@ -203,7 +235,7 @@ public class YouTubeApiService
         }
     }
 
-    private async Task ShowCustomToastAsync(string channelTitle, string videoTitle, string publishedAt, string? thumbnailUrl, string videoId)
+    private async Task ShowCustomToastAsync(string channelTitle, string videoTitle, string publishedAt, string? thumbnailUrl, string? channelProfileUrl, string videoId)
     {
         string? localThumbnailPath = null;
         if (!string.IsNullOrEmpty(thumbnailUrl))
@@ -223,13 +255,31 @@ public class YouTubeApiService
             }
         }
 
-        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "notipulse_icon.png");
+        string? localProfilePath = null;
+        if (!string.IsNullOrEmpty(channelProfileUrl))
+        {
+            try
+            {
+                using var client = new HttpClient();
+                var imageBytes = await client.GetByteArrayAsync(channelProfileUrl);
+                
+                var tempPath = Path.Combine(Path.GetTempPath(), $"yt_profile_{videoId}.jpg");
+                await File.WriteAllBytesAsync(tempPath, imageBytes);
+                localProfilePath = tempPath;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to download channel profile picture");
+            }
+        }
+
+        var defaultLogoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "notipulse_icon.png");
+        var logoUri = !string.IsNullOrEmpty(localProfilePath) ? new Uri(localProfilePath) : new Uri(defaultLogoPath);
 
         var builder = new ToastContentBuilder()
             .AddArgument("action", "viewVideo")
             .AddArgument("videoId", videoId)
-            // Adds the YouTube logo as the "App Logo" replacing the generic .exe icon in the header
-            .AddHeader("YouTube", "YouTube", "action=youtube")
+            // Removed .AddHeader() to save vertical space
             .AddText($"{channelTitle} uploaded a new video!")
             .AddText(videoTitle)
             .AddText($"Published: {publishedAt}");
@@ -237,14 +287,10 @@ public class YouTubeApiService
         if (!string.IsNullOrEmpty(localThumbnailPath))
         {
             builder.AddHeroImage(new Uri(localThumbnailPath));
-            // Instead of inline image which adds to the bottom, we use the YouTube logo as the AppLogo 
-            // and the video thumbnail as the HeroImage. We drop the inline image completely.
-            builder.AddAppLogoOverride(new Uri(logoPath), ToastGenericAppLogoCrop.Default);
         }
-        else
-        {
-            builder.AddAppLogoOverride(new Uri(logoPath), ToastGenericAppLogoCrop.Default);
-        }
+        
+        // AppLogoOverride sets the image to the left of the text. Using Circle to make it look like a real YouTube profile pic!
+        builder.AddAppLogoOverride(logoUri, ToastGenericAppLogoCrop.Circle);
         
         builder.Show();
         _logger.LogInformation("Fired live push notification for {Title}!", videoTitle);
