@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Toolkit.Uwp.Notifications;
 
-namespace NotiFlare;
+namespace NotiPulse;
 
 public class SubscriptionManagerWorker : BackgroundService
 {

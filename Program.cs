@@ -1,4 +1,4 @@
-using NotiFlare;
+using NotiPulse;
 using Microsoft.AspNetCore.Mvc;
 using System.Xml.Linq;
 
