@@ -18,24 +18,6 @@ public class SubscriptionManagerWorker : BackgroundService
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
-        // Listen for activation
-        ToastNotificationManagerCompat.OnActivated += toastArgs =>
-        {
-            ToastArguments args = ToastArguments.Parse(toastArgs.Argument);
-            if (args.TryGetValue("action", out string action) && action == "viewVideo")
-            {
-                if (args.TryGetValue("videoId", out string videoId))
-                {
-                    var url = $"https://www.youtube.com/watch?v={videoId}";
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = url,
-                        UseShellExecute = true
-                    });
-                }
-            }
-        };
-
         await base.StartAsync(cancellationToken);
     }
 

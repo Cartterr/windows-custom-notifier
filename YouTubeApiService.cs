@@ -277,8 +277,7 @@ public class YouTubeApiService
         var logoUri = !string.IsNullOrEmpty(localProfilePath) ? new Uri(localProfilePath) : new Uri(defaultLogoPath);
 
         var builder = new ToastContentBuilder()
-            .AddArgument("action", "viewVideo")
-            .AddArgument("videoId", videoId)
+            .SetProtocolActivation(new Uri($"https://www.youtube.com/watch?v={videoId}"))
             // Removed .AddHeader() to save vertical space
             .AddText(videoTitle, hintWrap: true, hintMaxLines: 2)
             .AddText(channelTitle);
