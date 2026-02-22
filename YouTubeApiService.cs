@@ -280,7 +280,7 @@ public class YouTubeApiService
             .AddArgument("action", "viewVideo")
             .AddArgument("videoId", videoId)
             // Removed .AddHeader() to save vertical space
-            .AddText(videoTitle, hintWrap: true, hintMaxLines: 2)
+            .AddText(videoTitle, hintWrap: true, hintMaxLines: 3)
             .AddText(channelTitle);
 
         if (!string.IsNullOrEmpty(localThumbnailPath))
