@@ -223,7 +223,7 @@ public class YouTubeApiService
             }
         }
 
-        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "youtube_icon.png");
+        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "notipulse_icon.png");
 
         var builder = new ToastContentBuilder()
             .AddArgument("action", "viewVideo")

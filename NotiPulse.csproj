@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-NotiPulse-3e838262-dc70-4b93-8367-c6f07e1a21c0</UserSecretsId>
+    <ApplicationIcon>notipulse_icon.ico</ApplicationIcon>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
   </PropertyGroup>
 
@@ -15,7 +16,7 @@
     <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
   </ItemGroup>
     <ItemGroup>
-        <None Update="youtube_icon.png">
+        <None Update="notipulse_icon.png">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </None>
     </ItemGroup>
