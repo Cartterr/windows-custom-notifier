@@ -281,8 +281,7 @@ public class YouTubeApiService
             .AddArgument("videoId", videoId)
             // Removed .AddHeader() to save vertical space
             .AddText($"{channelTitle} uploaded a new video!")
-            .AddText(videoTitle)
-            .AddText($"Published: {publishedAt}");
+            .AddText(videoTitle, hintWrap: true, hintMaxLines: 2);
 
         if (!string.IsNullOrEmpty(localThumbnailPath))
         {
