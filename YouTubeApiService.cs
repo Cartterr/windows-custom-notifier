@@ -1,8 +1,10 @@
+using System.Text.Json;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
+using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace YoutubeNotifier;
 
@@ -13,18 +15,46 @@ public class YouTubeApiService
     private readonly ILogger<YouTubeApiService> _logger;
     private readonly string _credentialsPath;
     private readonly string _tokenPath;
+    private readonly string _stateFilePath;
+    private HashSet<string> _notifiedVideoIds = new();
 
     public YouTubeApiService(ILogger<YouTubeApiService> logger)
     {
         _logger = logger;
         
-        // Define paths for credentials and tokens
         var appDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var appFolder = Path.Combine(appDataFolder, "WindowsCustomNotifier");
         Directory.CreateDirectory(appFolder);
         
         _credentialsPath = Path.Combine(appFolder, "credentials.json");
         _tokenPath = Path.Combine(appFolder, "token");
+        _stateFilePath = Path.Combine(appFolder, "state.json");
+        
+        LoadState();
+    }
+
+    private void LoadState()
+    {
+        if (File.Exists(_stateFilePath))
+        {
+            try
+            {
+                var json = File.ReadAllText(_stateFilePath);
+                var state = JsonSerializer.Deserialize<HashSet<string>>(json);
+                if (state != null) _notifiedVideoIds = state;
+            }
+            catch (Exception ex) { _logger.LogError(ex, "Failed to load state"); }
+        }
+    }
+
+    private void SaveState()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(_notifiedVideoIds);
+            File.WriteAllText(_stateFilePath, json);
+        }
+        catch (Exception ex) { _logger.LogError(ex, "Failed to save state"); }
     }
 
     public async Task<bool> AuthenticateAsync(CancellationToken cancellationToken)
@@ -54,7 +84,6 @@ public class YouTubeApiService
                 ApplicationName = "YouTube Windows 11 Notifier",
             });
 
-            _logger.LogInformation("Successfully authenticated with YouTube Data API.");
             return true;
         }
         catch (Exception ex)
@@ -99,36 +128,79 @@ public class YouTubeApiService
         }
     }
 
-    public async Task<List<Activity>> GetRecentActivitiesAsync(List<string> channelIds, DateTime afterDate, CancellationToken cancellationToken)
+    public async Task HandleIncomingPushNotificationAsync(string videoId, string? channelId, string channelName, string title, string? publishedText)
     {
-        if (_youtubeService == null) throw new InvalidOperationException("Not authenticated");
-
-        var activities = new List<Activity>();
-
-        // Google API has quotas, so we only check a subset of channels or use the user's home feed.
-        // Let's use the user's home feed activities which is much more quota efficient.
-        try
+        // YouTube WebSub occasionally sends updates for old videos (e.g., description edits).
+        // Using our state file prevents duplicate notifications for the same video ID.
+        if (_notifiedVideoIds.Contains(videoId))
         {
-            var request = _youtubeService.Activities.List("snippet,contentDetails");
-            request.Home = true;
-            request.MaxResults = 50;
-            request.PublishedAfterDateTimeOffset = afterDate;
+            _logger.LogInformation("Ignored duplicate webhook payload for video ID {VideoId}", videoId);
+            return;
+        }
 
-            var response = await request.ExecuteAsync(cancellationToken);
+        string? thumbnailUrl = null;
 
-            foreach (var item in response.Items)
+        // Try to fetch the high-quality thumbnail if we are authenticated
+        if (_youtubeService != null)
+        {
+            try
             {
-                if (item.Snippet.Type == "upload") // Only care about new uploads
+                var request = _youtubeService.Videos.List("snippet");
+                request.Id = videoId;
+                var response = await request.ExecuteAsync();
+                var video = response.Items.FirstOrDefault();
+                
+                if (video != null)
                 {
-                    activities.Add(item);
+                    thumbnailUrl = video.Snippet.Thumbnails?.High?.Url ?? video.Snippet.Thumbnails?.Default__?.Url;
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error fetching activities");
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not fetch rich thumbnail for {VideoId}", videoId);
+            }
         }
 
-        return activities;
+        await ShowCustomToastAsync(channelName, title, publishedText ?? "Just Now", thumbnailUrl, videoId);
+        
+        _notifiedVideoIds.Add(videoId);
+        SaveState();
+    }
+
+    private async Task ShowCustomToastAsync(string channelTitle, string videoTitle, string publishedAt, string? thumbnailUrl, string videoId)
+    {
+        string? localThumbnailPath = null;
+        if (!string.IsNullOrEmpty(thumbnailUrl))
+        {
+            try
+            {
+                using var client = new HttpClient();
+                var imageBytes = await client.GetByteArrayAsync(thumbnailUrl);
+                
+                var tempPath = Path.Combine(Path.GetTempPath(), $"yt_thumb_{videoId}.jpg");
+                await File.WriteAllBytesAsync(tempPath, imageBytes);
+                localThumbnailPath = tempPath;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to download thumbnail for notification");
+            }
+        }
+
+        var builder = new ToastContentBuilder()
+            .AddArgument("action", "viewVideo")
+            .AddArgument("videoId", videoId)
+            .AddText($"{channelTitle} uploaded a new video!")
+            .AddText(videoTitle)
+            .AddText($"Published: {publishedAt}");
+
+        if (!string.IsNullOrEmpty(localThumbnailPath))
+        {
+            builder.AddHeroImage(new Uri(localThumbnailPath));
+            builder.AddAppLogoOverride(new Uri(localThumbnailPath), ToastGenericAppLogoCrop.Circle);
+        }
+        
+        builder.Show();
+        _logger.LogInformation("Fired live push notification for {Title}!", videoTitle);
     }
 }

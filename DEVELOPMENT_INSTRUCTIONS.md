@@ -1,18 +1,37 @@
 # Development Instructions
 
-This project is a centralized custom notifier for Windows 11. Although its initial module interacts with YouTube Data API v3, it is designed with the possibility to add more integrations later (such as OAuth with OpenAI or local integrations).
+This project is a centralized custom notifier for Windows 11. It intercepts YouTube Data API v3 events via live push notifications using the PubSubHubbub / WebSub protocol.
+
+## Architecture: Live WebSub Architecture
+
+To make notifications instant without constantly burning CPU polling, this application is built as an **ASP.NET Core Web API** that listens for Webhook POST requests sent directly from Google.
+
+1. **SubscriptionManagerWorker**: On startup, it grabs your YouTube channel subscriptions and automatically sends `hub.mode=subscribe` requests to the Google WebSub Hub (`pubsubhubbub.appspot.com`).
+2. **Webhook Endpoint**: `Program.cs` exposes `GET /api/youtube/webhook` (to verify the subscription challenge) and `POST /api/youtube/webhook` (to receive the live XML payload instantly when a video drops).
+3. **Notification Builder**: Parses the XML, downloads the video thumbnail, and fires the rich Windows 11 Toast instantly.
+
+### Public Endpoint Requirement (Static IP / Tunnels)
+
+Because Google's servers must be able to reach your computer to push the webhook, **you must have a public URL**.
+
+**How to set this up:**
+1. Open `appsettings.json`.
+2. Change `"PublicWebhookUrl"` to a valid public URL that points to your PC on the configured `"Port"` (default 5000).
+
+*Options for Public URLs:*
+- **Cloudflare Tunnels (Recommended):** Run `cloudflared tunnel --url http://localhost:5000` to get a free, secure, persistent public URL without touching your router.
+- **Ngrok (Great for testing):** Run `ngrok http 5000`.
+- **Port Forwarding:** Set up a Static IP on your Windows PC, log into your router, and port forward TCP 5000 to your PC. Then, map a Dynamic DNS (like DuckDNS) to your router's public IP.
 
 ## Security and API Keys (CRITICAL)
 
 **NEVER commit API keys or OAuth credentials directly into the repository.**
 
 To ensure credentials remain local:
-- The YouTube `credentials.json` and OAuth tokens are strictly saved inside `%LocalAppData%\YoutubeNotifier` (a folder completely isolated from this repository).
+- The YouTube `credentials.json` and OAuth tokens are strictly saved inside `%LocalAppData%\WindowsCustomNotifier` (a folder completely isolated from this repository).
 - If new integrations (like OpenAI) are added in the future, follow this exact same approach:
   - Create the authentication logic to read secrets from outside the repository.
   - Rely on Windows user folders (e.g., `%LocalAppData%\WindowsCustomNotifier`) for persistence.
-  - If a secret absolutely must be within the folder, add it to `.gitignore` and create an example template (e.g., `.env.example`).
-- Be extremely cautious when adding new `.json` config files. `.gitignore` ignores all JSONs by default unless whitelisted.
 
 ## Building and Running
 
@@ -21,10 +40,3 @@ You can use the .NET CLI:
 dotnet build
 dotnet run
 ```
-
-## Adding New Integrations
-
-When adding a new integration, consider maintaining the structure:
-1. **Background Worker**: Polls endpoints periodically or listens to WebSockets.
-2. **Notification Builder**: Generates rich Windows 11 Toasts (e.g., profile pictures, headers, custom texts, and buttons).
-3. **Activation Handler**: Navigates the user to a browser or internal URL upon clicking.
