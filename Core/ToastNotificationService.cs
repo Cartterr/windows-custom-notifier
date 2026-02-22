@@ -47,7 +47,11 @@ public class ToastNotificationService : IToastNotificationService
         
         builder.AddAppLogoOverride(finalLogoUri, ToastGenericAppLogoCrop.Circle);
         
-        builder.Show();
+        builder.Show(toast => 
+        {
+            toast.Tag = Guid.NewGuid().ToString();
+            toast.Group = "NotiPulse";
+        });
         _logger.LogInformation("Fired live push notification for {Title}!", title);
     }
 
