@@ -1,5 +1,43 @@
+# Visual Studio / .NET
 bin/
 obj/
 *.user
 *.suo
 .vs/
+*.userosscache
+*.sln.docstates
+.vscode/
+
+# Secrets & Credentials (CRITICAL)
+# Ignore all JSON files by default just to be safe, then explicitly allow only non-secret ones
+*.json
+*.env
+*.env.*
+*.secret
+*.key
+*.pem
+credentials.json
+client_secret*.json
+token/
+tokens/
+state.json
+secrets/
+
+# Allow essential config files
+!appsettings.json
+!appsettings.Development.json
+!Properties/launchSettings.json
+!NotiPulse.deps.json
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini

@@ -1,24 +1,18 @@
 using System.Diagnostics;
-using Microsoft.Toolkit.Uwp.Notifications;
 
-namespace NotiPulse;
+namespace NotiPulse.Services.YouTube;
 
-public class SubscriptionManagerWorker : BackgroundService
+public class YouTubeSubscriptionWorker : BackgroundService
 {
-    private readonly ILogger<SubscriptionManagerWorker> _logger;
+    private readonly ILogger<YouTubeSubscriptionWorker> _logger;
     private readonly YouTubeApiService _apiService;
     private readonly IConfiguration _configuration;
 
-    public SubscriptionManagerWorker(ILogger<SubscriptionManagerWorker> logger, YouTubeApiService apiService, IConfiguration configuration)
+    public YouTubeSubscriptionWorker(ILogger<YouTubeSubscriptionWorker> logger, YouTubeApiService apiService, IConfiguration configuration)
     {
         _logger = logger;
         _apiService = apiService;
         _configuration = configuration;
-    }
-
-    public override async Task StartAsync(CancellationToken cancellationToken)
-    {
-        await base.StartAsync(cancellationToken);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

@@ -3,24 +3,25 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using Google.Apis.YouTube.v3;
-using Google.Apis.YouTube.v3.Data;
-using Microsoft.Toolkit.Uwp.Notifications;
+using NotiPulse.Core;
 
-namespace NotiPulse;
+namespace NotiPulse.Services.YouTube;
 
 public class YouTubeApiService
 {
     private static readonly string[] Scopes = { YouTubeService.Scope.YoutubeReadonly };
     private YouTubeService? _youtubeService;
     private readonly ILogger<YouTubeApiService> _logger;
+    private readonly IToastNotificationService _toastService;
     private readonly string _credentialsPath;
     private readonly string _tokenPath;
     private readonly string _stateFilePath;
     private HashSet<string> _notifiedVideoIds = new();
 
-    public YouTubeApiService(ILogger<YouTubeApiService> logger)
+    public YouTubeApiService(ILogger<YouTubeApiService> logger, IToastNotificationService toastService)
     {
         _logger = logger;
+        _toastService = toastService;
         
         var appDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var appFolder = Path.Combine(appDataFolder, "WindowsCustomNotifier");
@@ -81,7 +82,7 @@ public class YouTubeApiService
             _youtubeService = new YouTubeService(new BaseClientService.Initializer()
             {
                 HttpClientInitializer = credential,
-                ApplicationName = "YouTube Windows 11 Notifier",
+                ApplicationName = "NotiPulse Notification System",
             });
 
             return true;
@@ -170,7 +171,8 @@ public class YouTubeApiService
             }
         }
 
-        await ShowCustomToastAsync(channelName, title, publishedText ?? "Just Now", thumbnailUrl, channelProfileUrl, videoId);
+        var clickUrl = $"https://www.youtube.com/watch?v={videoId}";
+        await _toastService.ShowToastAsync(title, channelName, thumbnailUrl, channelProfileUrl, clickUrl);
         
         _notifiedVideoIds.Add(videoId);
         SaveState();
@@ -213,7 +215,6 @@ public class YouTubeApiService
             {
                 var channelName = video.Snippet.ChannelTitle;
                 var title = video.Snippet.Title;
-                var publishedText = video.Snippet.PublishedAtDateTimeOffset?.LocalDateTime.ToString("g") ?? "Just Now";
                 var thumbnailUrl = video.Snippet.Thumbnails?.Maxres?.Url 
                                 ?? video.Snippet.Thumbnails?.Standard?.Url 
                                 ?? video.Snippet.Thumbnails?.High?.Url 
@@ -221,7 +222,9 @@ public class YouTubeApiService
                 
                 var channelProfileUrl = await GetChannelProfilePictureUrlAsync(video.Snippet.ChannelId);
 
-                await ShowCustomToastAsync(channelName, title, publishedText, thumbnailUrl, channelProfileUrl, videoId);
+                var clickUrl = $"https://www.youtube.com/watch?v={videoId}";
+                await _toastService.ShowToastAsync(title, channelName, thumbnailUrl, channelProfileUrl, clickUrl);
+
                 _logger.LogInformation("Successfully fired test notification for video {VideoId}", videoId);
             }
             else
@@ -233,64 +236,5 @@ public class YouTubeApiService
         {
             _logger.LogError(ex, "Error fetching test video {VideoId}", videoId);
         }
-    }
-
-    private async Task ShowCustomToastAsync(string channelTitle, string videoTitle, string publishedAt, string? thumbnailUrl, string? channelProfileUrl, string videoId)
-    {
-        string? localThumbnailPath = null;
-        if (!string.IsNullOrEmpty(thumbnailUrl))
-        {
-            try
-            {
-                using var client = new HttpClient();
-                var imageBytes = await client.GetByteArrayAsync(thumbnailUrl);
-                
-                var tempPath = Path.Combine(Path.GetTempPath(), $"yt_thumb_{videoId}.jpg");
-                await File.WriteAllBytesAsync(tempPath, imageBytes);
-                localThumbnailPath = tempPath;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to download thumbnail for notification");
-            }
-        }
-
-        string? localProfilePath = null;
-        if (!string.IsNullOrEmpty(channelProfileUrl))
-        {
-            try
-            {
-                using var client = new HttpClient();
-                var imageBytes = await client.GetByteArrayAsync(channelProfileUrl);
-                
-                var tempPath = Path.Combine(Path.GetTempPath(), $"yt_profile_{videoId}.jpg");
-                await File.WriteAllBytesAsync(tempPath, imageBytes);
-                localProfilePath = tempPath;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to download channel profile picture");
-            }
-        }
-
-        var defaultLogoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "notipulse_icon.png");
-        var logoUri = !string.IsNullOrEmpty(localProfilePath) ? new Uri(localProfilePath) : new Uri(defaultLogoPath);
-
-        var builder = new ToastContentBuilder()
-            .SetProtocolActivation(new Uri($"https://www.youtube.com/watch?v={videoId}"))
-            // Removed .AddHeader() to save vertical space
-            .AddText(videoTitle, hintWrap: true, hintMaxLines: 2)
-            .AddText(channelTitle);
-
-        if (!string.IsNullOrEmpty(localThumbnailPath))
-        {
-            builder.AddHeroImage(new Uri(localThumbnailPath));
-        }
-        
-        // AppLogoOverride sets the image to the left of the text. Using Circle to make it look like a real YouTube profile pic!
-        builder.AddAppLogoOverride(logoUri, ToastGenericAppLogoCrop.Circle);
-        
-        builder.Show();
-        _logger.LogInformation("Fired live push notification for {Title}!", videoTitle);
     }
 }
