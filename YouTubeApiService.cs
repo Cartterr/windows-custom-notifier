@@ -20,7 +20,7 @@ public class YouTubeApiService
         
         // Define paths for credentials and tokens
         var appDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appFolder = Path.Combine(appDataFolder, "YoutubeNotifier");
+        var appFolder = Path.Combine(appDataFolder, "WindowsCustomNotifier");
         Directory.CreateDirectory(appFolder);
         
         _credentialsPath = Path.Combine(appFolder, "credentials.json");

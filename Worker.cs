@@ -18,7 +18,7 @@ public class Worker : BackgroundService
         _apiService = apiService;
         
         var appDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appFolder = Path.Combine(appDataFolder, "YoutubeNotifier");
+        var appFolder = Path.Combine(appDataFolder, "WindowsCustomNotifier");
         Directory.CreateDirectory(appFolder);
         _stateFilePath = Path.Combine(appFolder, "state.json");
     }
