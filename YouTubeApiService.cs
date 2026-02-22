@@ -223,6 +223,8 @@ public class YouTubeApiService
             }
         }
 
+        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "youtube_icon.png");
+
         var builder = new ToastContentBuilder()
             .AddArgument("action", "viewVideo")
             .AddArgument("videoId", videoId)
@@ -235,7 +237,21 @@ public class YouTubeApiService
         if (!string.IsNullOrEmpty(localThumbnailPath))
         {
             builder.AddHeroImage(new Uri(localThumbnailPath));
-            builder.AddAppLogoOverride(new Uri(localThumbnailPath), ToastGenericAppLogoCrop.Circle);
+            // Ensure the main AppLogoOverride (the YouTube icon) isn't accidentally overwritten by the circle crop
+            // If you want the channel profile picture as an icon, you can use AddInlineImage, but AppLogoOverride is reserved for the App Icon feel.
+        }
+        
+        // This is the channel profile picture style thumbnail
+        if (!string.IsNullOrEmpty(localThumbnailPath))
+        {
+            // We reference BurntToast's usage of AppLogoOverride for the channel picture feeling
+            // Wait, we need the actual YouTube Logo for the app logo. Let's put the channel thumbnail inline!
+            builder.AddInlineImage(new Uri(localThumbnailPath));
+            builder.AddAppLogoOverride(new Uri(logoPath), ToastGenericAppLogoCrop.Default);
+        }
+        else
+        {
+            builder.AddAppLogoOverride(new Uri(logoPath), ToastGenericAppLogoCrop.Default);
         }
         
         builder.Show();
